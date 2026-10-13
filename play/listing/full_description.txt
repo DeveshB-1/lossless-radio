@@ -1,0 +1,22 @@
+Lossless Radio finds and plays internet radio in true CD quality. Lossless stations stream FLAC — every bit of the original audio, no compression artefacts — and Lossless Radio shows you exactly what happens to that audio on its way to your ears.
+
+FIND LOSSLESS STATIONS
+• Discover dozens of FLAC stations from around the world — rock, jazz, classical, lounge, electronic and more — with a green FLAC badge so you always know what you're getting.
+• Switch to "All stations" to search over 50,000 internet radio stations.
+• Add any stream by URL: direct streams, .pls/.m3u playlists and HLS all work.
+
+MADE FOR LISTENING
+• Favourites and recently played, one tap away.
+• Now playing: song and artist when the station sends them.
+• Background playback with notification, lock-screen and Bluetooth/headset controls.
+• Sleep timer.
+• Live-radio behaviour: resuming jumps back to what's on air now, and dropped connections reconnect automatically.
+
+FOR AUDIOPHILES
+• Signal path view: the actual codec, sample rate and bit depth being decoded, the output device, and an honest verdict on whether that hop is lossless.
+• Bit-perfect USB (Android 14+): send untouched audio straight to your USB DAC, bypassing Android's mixer and resampler.
+• Ready for aptX Lossless on Snapdragon Sound phones with compatible earbuds.
+
+No accounts, no ads, no tracking. Optional tips keep it going — they unlock nothing.
+
+Station listings come from radio-browser.info, a free community directory. Streams belong to their broadcasters; Lossless Radio isn't affiliated with any station.
