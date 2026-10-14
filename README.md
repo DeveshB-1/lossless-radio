@@ -12,6 +12,10 @@ exactly what happens to the audio on its way to your ears.
 - **Bit-perfect USB** on Android 14+.
 - Optional Google Play tip jar. No ads, no accounts, no tracking.
 
+## Screenshots
+
+<table><tr><td align="center"><img src="play/screenshots/1-now-playing.png" width="220" alt="Now playing"><br><sub>Now playing</sub></td><td align="center"><img src="play/screenshots/2-discover.png" width="220" alt="Discover"><br><sub>Discover</sub></td><td align="center"><img src="play/screenshots/3-library.png" width="220" alt="Library"><br><sub>Library</sub></td></tr></table>
+
 ## Install
 
 Download `LosslessRadio.apk` from [Releases](../../releases). Android 10+.
