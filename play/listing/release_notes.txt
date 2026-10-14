@@ -1,1 +1,1 @@
-First release: lossless station discovery, favourites, sleep timer, signal-path view and bit-perfect USB.
+A whole new look: colours that follow each station's logo, an immersive player with live visuals, featured stations and genre browsing.

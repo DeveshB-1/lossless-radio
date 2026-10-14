@@ -23,14 +23,17 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.core.content.ContextCompat
 import androidx.core.os.bundleOf
 import androidx.lifecycle.lifecycleScope
@@ -43,7 +46,9 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import io.github.deveshb1.losslessradio.ui.AboutScreen
 import io.github.deveshb1.losslessradio.ui.AddStationDialog
-import io.github.deveshb1.losslessradio.ui.AppColors
+import io.github.deveshb1.losslessradio.ui.Background
+import io.github.deveshb1.losslessradio.ui.LosslessTheme
+import io.github.deveshb1.losslessradio.ui.topGenres
 import io.github.deveshb1.losslessradio.ui.Directory
 import io.github.deveshb1.losslessradio.ui.DiscoverScreen
 import io.github.deveshb1.losslessradio.ui.FullPlayer
@@ -74,6 +79,7 @@ class MainActivity : ComponentActivity() {
 
     private var query by mutableStateOf("")
     private var losslessOnly by mutableStateOf(true)
+    private var genre by mutableStateOf<String?>(null)
     private var lossless: Directory by mutableStateOf(Directory.Loading)
     private var searchResults: Directory by mutableStateOf(Directory.Loading)
     private var searchJob: Job? = null
@@ -93,7 +99,7 @@ class MainActivity : ComponentActivity() {
         loadLossless()
 
         setContent {
-            MaterialTheme(colorScheme = AppColors) {
+            LosslessTheme {
                 Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     App()
                 }
@@ -109,11 +115,17 @@ class MainActivity : ComponentActivity() {
                 containerColor = MaterialTheme.colorScheme.background,
                 bottomBar = {
                     Column {
-                        MiniPlayer(now, onOpen = { playerOpen = true }, onToggle = ::togglePlayback)
-                        NavigationBar(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
-                            NavigationBarItem(tab == Tab.LIBRARY, { tab = Tab.LIBRARY }, { Icon(Icons.Filled.Home, null) }, label = { Text("Library") })
-                            NavigationBarItem(tab == Tab.DISCOVER, { tab = Tab.DISCOVER }, { Icon(Icons.Filled.Search, null) }, label = { Text("Discover") })
-                            NavigationBarItem(tab == Tab.ABOUT, { tab = Tab.ABOUT }, { Icon(Icons.Filled.Info, null) }, label = { Text("About") })
+                        // Library already shows a "now playing" card, so the mini player would just repeat it.
+                        if (tab != Tab.LIBRARY) MiniPlayer(now, onOpen = { playerOpen = true }, onToggle = ::togglePlayback)
+                        NavigationBar(containerColor = Background, tonalElevation = 0.dp) {
+                            val itemColors = NavigationBarItemDefaults.colors(
+                                selectedIconColor = Background,
+                                indicatorColor = MaterialTheme.colorScheme.primary,
+                                selectedTextColor = MaterialTheme.colorScheme.primary,
+                            )
+                            NavigationBarItem(tab == Tab.LIBRARY, { tab = Tab.LIBRARY }, { Icon(Icons.Filled.Home, null) }, label = { Text("Library") }, colors = itemColors)
+                            NavigationBarItem(tab == Tab.DISCOVER, { tab = Tab.DISCOVER }, { Icon(Icons.Filled.Search, null) }, label = { Text("Discover") }, colors = itemColors)
+                            NavigationBarItem(tab == Tab.ABOUT, { tab = Tab.ABOUT }, { Icon(Icons.Filled.Info, null) }, label = { Text("About") }, colors = itemColors)
                         }
                     }
                 },
@@ -121,22 +133,27 @@ class MainActivity : ComponentActivity() {
                 when (tab) {
                     Tab.LIBRARY -> LibraryScreen(
                         library = lib,
-                        current = now.station,
+                        now = now,
                         contentPadding = padding,
                         onPlay = ::play,
                         onFavorite = library::toggleFavorite,
                         onDiscover = { tab = Tab.DISCOVER },
                         onAddStation = { addingStation = true },
+                        onOpenPlayer = { playerOpen = true },
+                        onToggle = ::togglePlayback,
                     )
                     Tab.DISCOVER -> DiscoverScreen(
                         query = query,
                         losslessOnly = losslessOnly,
+                        genre = genre,
+                        genres = (lossless as? Directory.Loaded)?.let { remember(it) { topGenres(it.stations) } }.orEmpty(),
                         results = if (losslessOnly) filteredLossless() else searchResults,
                         library = lib,
-                        current = now.station,
+                        now = now,
                         contentPadding = padding,
                         onQuery = ::onQuery,
-                        onLosslessOnly = { losslessOnly = it; if (!it) search(query, debounce = false) },
+                        onLosslessOnly = { losslessOnly = it; genre = null; if (!it) search(query, debounce = false) },
+                        onGenre = { genre = it },
                         onRetry = { if (losslessOnly) loadLossless() else search(query, debounce = false) },
                         onPlay = ::play,
                         onFavorite = library::toggleFavorite,
@@ -324,10 +341,12 @@ class MainActivity : ComponentActivity() {
     private fun filteredLossless(): Directory {
         val all = lossless as? Directory.Loaded ?: return lossless
         val q = query.trim()
-        if (q.isEmpty()) return all
+        val g = genre
+        if (q.isEmpty() && g == null) return all
         return Directory.Loaded(
             all.stations.filter { s ->
-                listOf(s.name, s.tags, s.countryCode).any { it.contains(q, ignoreCase = true) }
+                (q.isEmpty() || listOf(s.name, s.tags, s.countryCode).any { it.contains(q, ignoreCase = true) }) &&
+                    (g == null || s.tags.split(',').any { it.trim().lowercase().contains(g) })
             },
         )
     }

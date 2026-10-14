@@ -1,7 +1,9 @@
 package io.github.deveshb1.losslessradio.ui
 
 import android.os.Bundle
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -21,16 +23,14 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Star
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -64,36 +64,51 @@ data class NowState(
     val error: String? = null,
 )
 
-private fun NowState.status(): Pair<String, Color?> = when {
-    error != null -> error to Warn
-    reconnecting -> "Reconnecting…" to Warn
-    buffering -> "Buffering…" to Warn
-    wantsAudio -> "Live" to Color(0xFFFF5A5A)
-    else -> "Stopped" to null
+private data class Status(val text: String, val dot: Color?, val breathing: Boolean)
+
+private fun NowState.status(): Status = when {
+    error != null -> Status(error, Warn, false)
+    reconnecting -> Status("RECONNECTING", Warn, true)
+    buffering -> Status("BUFFERING", Warn, true)
+    wantsAudio -> Status("LIVE", LiveRed, true)
+    else -> Status("STOPPED", null, false)
 }
 
 @Composable
 fun MiniPlayer(now: NowState, onOpen: () -> Unit, onToggle: () -> Unit) {
     val station = now.station ?: return
+    val color = rememberStationColor(station)
     Row(
         Modifier
             .fillMaxWidth()
-            .padding(horizontal = 8.dp, vertical = 6.dp)
-            .clip(RoundedCornerShape(16.dp))
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+            .clip(RoundedCornerShape(22.dp))
+            .background(Brush.horizontalGradient(listOf(color.copy(alpha = 0.38f), Surface1.copy(alpha = 0.96f))))
+            .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.08f)), RoundedCornerShape(22.dp))
             .clickable(onClick = onOpen)
             .padding(8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        StationArt(station, 44.dp, corner = 10.dp)
+        StationArt(station, 46.dp, corner = 14.dp)
         Spacer(Modifier.width(12.dp))
         Column(Modifier.weight(1f)) {
-            Text(now.title ?: station.name, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            val (status, _) = now.status()
-            val sub = if (now.title != null) now.artist ?: station.name else status
-            Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(now.title ?: station.name, style = MaterialTheme.typography.titleSmall, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            val status = now.status()
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                if (now.wantsAudio && now.error == null && !now.buffering) {
+                    Equalizer(true, color, bars = 3, barWidth = 2.dp, height = 10.dp)
+                    Spacer(Modifier.width(6.dp))
+                }
+                val sub = when {
+                    now.error != null -> now.error
+                    now.title != null -> now.artist ?: station.name
+                    else -> status.text.lowercase().replaceFirstChar { it.uppercase() }
+                }
+                Text(sub, fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
-        PlayStopButton(now.wantsAudio, 40.dp, onToggle, background = MaterialTheme.colorScheme.primary, ink = MaterialTheme.colorScheme.onPrimary)
+        Spacer(Modifier.width(8.dp))
+        GlowPlayButton(now.wantsAudio, 44.dp, color, onToggle)
     }
 }
 
@@ -110,74 +125,113 @@ fun FullPlayer(
     onHomepage: (String) -> Unit,
 ) {
     val station = now.station ?: return
-    val hue = ((station.name.hashCode() % 360) + 360) % 360
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Brush.verticalGradient(0f to Color.hsv(hue.toFloat(), 0.35f, 0.28f), 0.7f to Background)),
-    ) {
+    val color = rememberStationColor(station)
+    val live = now.wantsAudio && !now.buffering && now.error == null
+    AuroraBackground(color, animated = live, modifier = Modifier.fillMaxSize()) {
         Column(
-            Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp, vertical = 8.dp),
+            Modifier.fillMaxSize().systemBarsPadding().verticalScroll(rememberScrollState()).padding(horizontal = 22.dp, vertical = 6.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onClose) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") }
-                Spacer(Modifier.weight(1f))
+                IconButton(onClick = onClose) { Icon(Icons.Filled.KeyboardArrowDown, contentDescription = "Close player", modifier = Modifier.size(30.dp)) }
+                Text(
+                    "NOW PLAYING",
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    fontSize = 12.sp, letterSpacing = 2.4.sp, fontWeight = FontWeight.Bold, color = Color.White.copy(alpha = 0.7f),
+                )
                 IconButton(onClick = onFavorite) {
-                    Icon(Icons.Filled.Star, contentDescription = if (favorite) "Remove from favourites" else "Add to favourites", tint = if (favorite) Warn else Color.White.copy(alpha = 0.5f))
+                    Icon(Icons.Filled.Star, contentDescription = if (favorite) "Remove from favourites" else "Add to favourites", tint = if (favorite) Warn else Color.White.copy(alpha = 0.45f))
                 }
             }
-            Spacer(Modifier.height(12.dp))
-            StationArt(station, 220.dp, corner = 28.dp)
-            Spacer(Modifier.height(24.dp))
+
+            Spacer(Modifier.height(28.dp))
+            Box(contentAlignment = Alignment.Center) {
+                PulseRings(live, color, corner = 40.dp, modifier = Modifier.size(260.dp))
+                StationArt(station, 248.dp, corner = 40.dp, glow = color)
+            }
+            Spacer(Modifier.height(34.dp))
 
             Text(
                 now.title ?: station.name,
-                fontSize = 22.sp,
-                fontWeight = FontWeight.SemiBold,
+                style = MaterialTheme.typography.headlineMedium,
+                fontSize = 28.sp,
+                lineHeight = 32.sp,
                 textAlign = TextAlign.Center,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
             )
-            Spacer(Modifier.height(4.dp))
+            Spacer(Modifier.height(6.dp))
             Text(
-                if (now.title != null) now.artist ?: station.name else listOf(station.flag, station.formatLabel).filter { it.isNotBlank() }.joinToString("  "),
-                fontSize = 16.sp,
-                color = Color.White.copy(alpha = 0.75f),
+                if (now.title != null) now.artist ?: station.name else station.subtitle(),
+                fontSize = 17.sp,
+                color = color,
+                fontWeight = FontWeight.Medium,
                 textAlign = TextAlign.Center,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-
-            Spacer(Modifier.height(24.dp))
-            PlayStopButton(now.wantsAudio, 76.dp, onToggle)
-            Spacer(Modifier.height(12.dp))
-            val (status, dot) = now.status()
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (dot != null) {
-                    Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
-                    Spacer(Modifier.width(8.dp))
-                }
-                Text(status, color = Color.White.copy(alpha = 0.7f), fontSize = 14.sp, textAlign = TextAlign.Center)
+            if (now.title != null) {
+                Text(
+                    "on ${station.name}",
+                    fontSize = 13.sp,
+                    color = Color.White.copy(alpha = 0.55f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
             }
 
-            Spacer(Modifier.height(20.dp))
-            SleepTimer(now.extras.getLong(SessionInfo.SLEEP_AT), onSleep)
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(22.dp))
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val status = now.status()
+                StatusPill(status.text, status.dot, status.breathing)
+                QualityPill(qualityLabel(now.extras, station), lossless = isLossless(now.extras, station))
+            }
+
+            Spacer(Modifier.height(30.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Equalizer(live, color.copy(alpha = 0.4f), bars = 5, barWidth = 4.dp, height = 28.dp)
+                Spacer(Modifier.width(32.dp))
+                GlowPlayButton(now.wantsAudio, 92.dp, color, onToggle)
+                Spacer(Modifier.width(32.dp))
+                Equalizer(live, color.copy(alpha = 0.4f), bars = 5, barWidth = 4.dp, height = 28.dp)
+            }
+
+            Spacer(Modifier.height(36.dp))
+            SleepTimer(now.extras.getLong(SessionInfo.SLEEP_AT), color, onSleep)
+            Spacer(Modifier.height(14.dp))
             SignalPath(now.extras, station, bitPerfectWanted, onBitPerfect)
 
             if (station.homepage.isNotBlank()) {
-                TextButton(onClick = { onHomepage(station.homepage) }, modifier = Modifier.padding(top = 8.dp)) {
-                    Text("Station website ↗")
-                }
+                Spacer(Modifier.height(14.dp))
+                PillButton("Station website ↗", filled = false) { onHomepage(station.homepage) }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
+private fun isLossless(extras: Bundle, station: Station): Boolean {
+    val codec = extras.getString(SessionInfo.CODEC).orEmpty()
+    return if (codec.isEmpty()) station.lossless else codec in setOf("FLAC", "ALAC")
+}
+
+private fun qualityLabel(extras: Bundle, station: Station): String {
+    val codec = extras.getString(SessionInfo.CODEC).orEmpty()
+    val rate = extras.getInt(SessionInfo.SAMPLE_RATE)
+    val bits = extras.getInt(SessionInfo.BITS)
+    if (codec.isEmpty()) return station.formatLabel
+    return buildList {
+        add(codec)
+        if (rate > 0) add("%.1f kHz".format(rate / 1000f))
+        if (bits > 0 && codec in setOf("FLAC", "ALAC")) add("$bits-bit")
+    }.joinToString(" · ")
+}
+
 @Composable
-private fun SleepTimer(sleepAt: Long, onSleep: (Int) -> Unit) {
+private fun SleepTimer(sleepAt: Long, color: Color, onSleep: (Int) -> Unit) {
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     LaunchedEffect(sleepAt) {
         while (sleepAt > 0) {
@@ -185,22 +239,27 @@ private fun SleepTimer(sleepAt: Long, onSleep: (Int) -> Unit) {
             delay(15_000)
         }
     }
-    Column(
-        Modifier.widthIn(max = 440.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.06f)).padding(14.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    GlassCard(Modifier.widthIn(max = 460.dp).fillMaxWidth(), tint = color) {
         val minutesLeft = ((sleepAt - now) / 60_000 + 1).coerceAtLeast(1)
-        Text(
-            if (sleepAt > 0) "Sleep timer · stops in $minutesLeft min" else "Sleep timer",
-            fontSize = 13.sp,
-            color = Color.White.copy(alpha = 0.7f),
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Sleep timer", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+            if (sleepAt > 0) Text("stops in $minutesLeft min", fontSize = 13.sp, color = color, fontWeight = FontWeight.SemiBold)
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             listOf(0 to "Off", 15 to "15m", 30 to "30m", 60 to "1h", 90 to "1½h").forEach { (minutes, label) ->
-                FilterChip(
-                    selected = if (minutes == 0) sleepAt == 0L else false,
-                    onClick = { onSleep(minutes) },
-                    label = { Text(label, fontSize = 13.sp) },
+                val selected = minutes == 0 && sleepAt == 0L
+                Text(
+                    label,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    textAlign = TextAlign.Center,
+                    color = if (selected) Background else Color.White.copy(alpha = 0.85f),
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(CircleShape)
+                        .background(if (selected) color else Color.White.copy(alpha = 0.07f))
+                        .clickable { onSleep(minutes) }
+                        .padding(vertical = 9.dp),
                 )
             }
         }
@@ -211,21 +270,12 @@ private fun SleepTimer(sleepAt: Long, onSleep: (Int) -> Unit) {
 private fun SignalPath(extras: Bundle, station: Station, bitPerfectWanted: Boolean, onBitPerfect: (Boolean) -> Unit) {
     val codec = extras.getString(SessionInfo.CODEC).orEmpty()
     val rate = extras.getInt(SessionInfo.SAMPLE_RATE)
-    val bits = extras.getInt(SessionInfo.BITS)
     val outRate = extras.getInt(SessionInfo.OUT_SAMPLE_RATE)
     val kind = runCatching { AudioPath.Kind.valueOf(extras.getString(SessionInfo.DEVICE_KIND).orEmpty()) }.getOrDefault(AudioPath.Kind.OTHER)
     val deviceName = extras.getString(SessionInfo.DEVICE_NAME).orEmpty()
     val bitPerfect = extras.getBoolean(SessionInfo.BIT_PERFECT)
     val streamLossless = codec in setOf("FLAC", "ALAC")
 
-    val source = when {
-        codec.isEmpty() -> station.formatLabel + " (waiting for audio)"
-        else -> buildList {
-            add(codec)
-            if (rate > 0) add("%.1f kHz".format(rate / 1000f))
-            if (bits > 0 && streamLossless) add("$bits-bit")
-        }.joinToString(" · ")
-    }
     val kindLabel = when (kind) {
         AudioPath.Kind.BLUETOOTH -> "Bluetooth"
         AudioPath.Kind.USB -> "USB"
@@ -234,7 +284,7 @@ private fun SignalPath(extras: Bundle, station: Station, bitPerfectWanted: Boole
         AudioPath.Kind.OTHER -> "Output"
     }
     val (verdictColor, verdict) = when {
-        codec.isNotEmpty() && !streamLossless -> Warn to "This station sends compressed (lossy) audio. Look for the green FLAC badge for lossless stations."
+        codec.isNotEmpty() && !streamLossless -> Warn to "This station sends compressed (lossy) audio. Look for the FLAC badge for lossless stations."
         kind == AudioPath.Kind.USB && bitPerfect -> Good to "Bit-perfect to your DAC — nothing in between."
         kind == AudioPath.Kind.USB -> Warn to "Android's mixer may resample before the DAC. Turn on bit-perfect below."
         kind == AudioPath.Kind.BLUETOOTH -> Warn to "Re-encoded by the Bluetooth codec, so lossy — unless your phone and earbuds use aptX Lossless."
@@ -243,20 +293,17 @@ private fun SignalPath(extras: Bundle, station: Station, bitPerfectWanted: Boole
         else -> Good to "Lossless stream."
     }
 
-    Column(
-        Modifier.widthIn(max = 440.dp).fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(Color.White.copy(alpha = 0.06f)).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-    ) {
-        Text("SIGNAL PATH", color = Color.White.copy(alpha = 0.5f), fontSize = 11.sp, letterSpacing = 2.sp)
-        PathRow("Stream", source, if (codec.isEmpty()) Color.Gray else if (streamLossless) Good else Warn)
-        PathRow("Decoder", if (outRate > 0) "PCM · %.1f kHz".format(outRate / 1000f) else "PCM", if (outRate == 0 || outRate == rate) Good else Warn)
-        PathRow(kindLabel, deviceName.ifEmpty { "—" }, verdictColor)
+    GlassCard(Modifier.widthIn(max = 460.dp).fillMaxWidth()) {
+        Text("Signal path", style = MaterialTheme.typography.titleMedium)
+        PathStep("Stream", qualityLabel(extras, station), if (codec.isEmpty()) Color.Gray else if (streamLossless) Good else Warn, last = false)
+        PathStep("Decoder", if (outRate > 0) "PCM · %.1f kHz".format(outRate / 1000f) else "PCM", if (outRate == 0 || outRate == rate) Good else Warn, last = false)
+        PathStep(kindLabel, deviceName.ifEmpty { "—" }, verdictColor, last = true)
         Text(verdict, color = Color.White.copy(alpha = 0.65f), fontSize = 13.sp, lineHeight = 18.sp)
 
         if (AudioPath.bitPerfectSupported) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
+            Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 4.dp)) {
                 Column(Modifier.weight(1f)) {
-                    Text("Bit-perfect USB", fontSize = 15.sp, fontWeight = FontWeight.Medium)
+                    Text("Bit-perfect USB", style = MaterialTheme.typography.titleSmall, fontSize = 15.sp)
                     Text(
                         "Sends audio untouched to a USB DAC. Other app sounds are silenced while it plays.",
                         color = Color.White.copy(alpha = 0.55f),
@@ -268,19 +315,24 @@ private fun SignalPath(extras: Bundle, station: Station, bitPerfectWanted: Boole
                 Switch(
                     checked = bitPerfectWanted,
                     onCheckedChange = onBitPerfect,
-                    colors = SwitchDefaults.colors(checkedTrackColor = Good, checkedThumbColor = Background),
+                    colors = SwitchDefaults.colors(checkedTrackColor = Accent, checkedThumbColor = Background),
                 )
             }
         }
     }
 }
 
+/** One hop of the signal chain, joined to the next by a thin line. */
 @Composable
-private fun PathRow(label: String, value: String, dot: Color) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.size(8.dp).clip(CircleShape).background(dot))
-        Spacer(Modifier.width(10.dp))
-        Text(label, color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp, modifier = Modifier.widthIn(min = 76.dp))
-        Text(value, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+private fun PathStep(label: String, value: String, dot: Color, last: Boolean) {
+    Row(verticalAlignment = Alignment.Top) {
+        Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.width(14.dp)) {
+            Spacer(Modifier.height(5.dp))
+            Box(Modifier.size(10.dp).clip(CircleShape).background(dot))
+            if (!last) Box(Modifier.width(2.dp).height(22.dp).background(Color.White.copy(alpha = 0.12f)))
+        }
+        Spacer(Modifier.width(12.dp))
+        Text(label, color = Color.White.copy(alpha = 0.55f), fontSize = 14.sp, modifier = Modifier.width(80.dp))
+        Text(value, fontSize = 14.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

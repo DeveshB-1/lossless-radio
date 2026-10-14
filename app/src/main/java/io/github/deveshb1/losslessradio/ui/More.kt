@@ -28,6 +28,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -46,10 +47,13 @@ fun AboutScreen(
         Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(contentPadding).padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp),
     ) {
-        Text("About", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.SemiBold)
+        Column {
+            Text("About", style = MaterialTheme.typography.displaySmall.copy(brush = AccentBrush))
+            Text("Lossless Radio", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 14.sp)
+        }
 
         Card {
-            Text("Lossless Radio", fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
+            Text("Every bit of the music", style = MaterialTheme.typography.titleLarge)
             Text(
                 "Internet radio in CD quality. Lossless stations stream FLAC — every bit of the original — " +
                     "and the signal-path view shows exactly what happens to the audio on your phone.",
@@ -62,7 +66,7 @@ fun AboutScreen(
 
         if (tipJar.status == TipJar.Status.READY) {
             Card {
-                Text("Support the app", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text("Support the app", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Lossless Radio is free with no ads. A tip helps keep it going — it unlocks nothing, it's just a thank-you.",
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -75,7 +79,7 @@ fun AboutScreen(
                             Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(12.dp))
-                                .background(MaterialTheme.colorScheme.secondaryContainer)
+                                .background(Brush.linearGradient(listOf(Accent.copy(alpha = 0.22f), Violet.copy(alpha = 0.22f))))
                                 .clickable { onTip(tip) }
                                 .padding(vertical = 12.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
@@ -91,7 +95,7 @@ fun AboutScreen(
         }
 
         Card {
-            Text("Stations", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text("Stations", style = MaterialTheme.typography.titleMedium)
             Text(
                 "Station listings come from radio-browser.info, a free, community-run directory. Streams belong to their " +
                     "broadcasters — many are listener-supported, so consider supporting the ones you enjoy.",
@@ -103,7 +107,7 @@ fun AboutScreen(
         }
 
         Card {
-            Text("Privacy", fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+            Text("Privacy", style = MaterialTheme.typography.titleMedium)
             Text(
                 "No accounts, no ads, no tracking. Your favourites stay on your phone.",
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -117,10 +121,7 @@ fun AboutScreen(
 
 @Composable
 private fun Card(content: @Composable () -> Unit) {
-    Column(
-        Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(MaterialTheme.colorScheme.surfaceContainer).padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) { content() }
+    GlassCard(Modifier.fillMaxWidth()) { content() }
 }
 
 @Composable
